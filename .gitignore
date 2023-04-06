@@ -1,0 +1,14 @@
+# dir
+__pycache__/*
+checkpoints/*
+cache/*
+save/*
+log/*
+
+# file
+*.pyc
+*.jsonl
+*.tar.gz
+*.zip
+*.txt
+*.json

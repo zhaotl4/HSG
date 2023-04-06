@@ -6,7 +6,7 @@ import nltk
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path',type=str,default='../cnndm/train.label.jsonl',help='file to deal with')
+    parser.add_argument('--data_path',type=str,default='/mnt/data/mjs/ztl/HSG_myself/cnndm/train.label.jsonl',help='file to deal with')
     parser.add_argument('--dataset',type=str,default='cnndm',help='dataset name')
 
     args = parser.parse_args()
