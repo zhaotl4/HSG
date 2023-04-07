@@ -47,7 +47,7 @@ def main():
     word_order = np.argsort(tf_idf)
     f = open(save_file,'w')
     for idx in word_order[0]:
-        print(idx)
+        # print(idx)
         word = id2word[idx]
         f.write(word)
         f.write("\n")

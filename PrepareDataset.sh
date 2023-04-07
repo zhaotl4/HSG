@@ -28,23 +28,23 @@ type=(train val test)
 echo -e "\033[34m[Shell] Create Vocabulary! \033[0m"
 python script/createVoc.py --dataset $dataset --data_path $datadir/train.label.jsonl
 
-# echo -e "\033[34m[Shell] Get low tfidf words from training set! \033[0m"
-# python script/lowTFIDFWords.py --dataset $dataset --data_path $datadir/train.label.jsonl
+echo -e "\033[34m[Shell] Get low tfidf words from training set! \033[0m"
+python script/lowTFIDFWords.py --dataset $dataset --data_path $datadir/train.label.jsonl
 
-# echo -e "\033[34m[Shell] Get word2sent edge feature! \033[0m"
-# for i in ${type[*]}
-#     do
-#         python script/calw2sTFIDF.py --dataset $dataset --data_path $datadir/$i.label.jsonl
-#     done
+echo -e "\033[34m[Shell] Get word2sent edge feature! \033[0m"
+for i in ${type[*]}
+    do
+        python script/calw2sTFIDF.py --dataset $dataset --data_path $datadir/$i.label.jsonl
+    done
 
-# if [ "$task" == "multi" ]; then
-#     echo -e "\033[34m[Shell] Get word2doc edge feature! \033[0m"
-#     for i in ${type[*]}
-#         do
-#             python script/calw2dTFIDF.py --dataset $dataset --data_path $datadir/$i.label.jsonl
-#         done
-# fi
+if [ "$task" == "multi" ]; then
+    echo -e "\033[34m[Shell] Get word2doc edge feature! \033[0m"
+    for i in ${type[*]}
+        do
+            python script/calw2dTFIDF.py --dataset $dataset --data_path $datadir/$i.label.jsonl
+        done
+fi
 
-# echo -e "\033[34m[Shell] The preprocess of dataset $dataset has finished! \033[0m"
+echo -e "\033[34m[Shell] The preprocess of dataset $dataset has finished! \033[0m"
 
 
