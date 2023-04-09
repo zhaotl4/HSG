@@ -1,3 +1,6 @@
+'''
+需要的是生成两个,word to id, id to word 这两个dict
+'''
 PAD_TOKEN = '[PAD]'
 UNKNOWN_TOKEN = '[UKN]'
 START_TOKEN = '[START]'
