@@ -81,11 +81,7 @@ class Example(object):
         label_shape = (len(self.origin_text), len(label))  # [N, len(label)]
         self.label_matrix = np.zeros(label_shape, dtype=int)
         if label != []:
-            self.label_matrix[np.array(
-                label
-            ), np.arange(
-                len(label)
-            )] = 1  # label_matrix[i][j]=1 indicate the i-th sent will be selected in j-th step
+            self.label_matrix[np.array(label), np.arange(len(label))] = 1  # label_matrix[i][j]=1 indicate the i-th sent will be selected in j-th step
 
     def pad_input_sent(self, pad_id):
         # sent is a list, self.enc_sent_input is a list(list)
@@ -239,9 +235,7 @@ class ExampleSet(torch.utils.data.Dataset):
                         data={"dtype": torch.ones(sent_cnt)})
 
         G.nodes[sent_ids].data["words"] = torch.LongTensor(input_pad)
-        G.nodes[sent_ids].data["position"] = torch.arange(1,
-                                                          sent_cnt + 1).view(
-                                                              -1, 1).long()
+        G.nodes[sent_ids].data["position"] = torch.arange(1,sent_cnt + 1).view(-1, 1).long()
         G.nodes[sent_ids].data["label"] = torch.LongTensor(label)
 
 
