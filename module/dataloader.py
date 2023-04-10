@@ -20,6 +20,10 @@ import torch
 import torch.utils.data
 import torch.nn.functional as F
 
+import dgl
+from dgl.data.utils import save_graphs, load_graphs
+
+
 
 
 FILTERWORD = stopwords.words('english')
@@ -163,53 +167,60 @@ class ExampleSet(torch.utils.data.Dataset):
     def add_word_node(self, G, inputid):
         wid2nid = {}
         nid2wid = {}
-        nid = 0
-        for sentid in inputid:
-            for wid in sentid:
-                if wid not in self.filter_ids and wid not in wid2nid.keys():
-                    wid2nid[wid] = nid
-                    nid2wid[nid] = wid
-                    nid += 1
-
-        w_nodes = len(nid2wid)
-
-        for nid, wid in nid2wid.items():
-            G.add_node(nid, unit=0, id=wid, dtype=0)
-
-        return wid2nid, nid2wid
-
-    # networkX 能否用于GPU
-    # tffrac 是float还是int
-    def create_graph(self, input_pad, label, w2s_w):
-        G = nx.DiGraph()
-
-        wid2nid, nid2wid = self.add_word_node(G, input_pad)
-        w_nodes = len(nid2wid)
-
-        N = len(input_pad)
-        sentid2nid = [i + w_nodes for i in range(N)]
-
-        for i, sent_nid in enumerate(sentid2nid):
-            G.add_node(sent_nid, unit=1, dtype=1, words=torch.LongTensor(input_pad[i]), position=i+1, label=torch.LongTensor(label[i]))
-
-            c = Counter(input_pad[i])
-            sent_tfw = w2s_w[str(i)]
-            for wid in c.keys():
-                if wid in wid2nid.keys() and self.vocab.id2word(wid) in sent_tfw.keys():
-                    tfidf = sent_tfw[self.vocab.id2word(wid)]
-                    tfidf_box = np.round(tfidf * 9) # tfidf * 9后四舍五入
-
-                    G.add_edge(wid2nid[wid], sent_nid, tffrac=float(tfidf_box), dtype=0)
-                    G.add_edge(sent_nid, wid2nid[wid], tffrac=float(tfidf_box), dtype=0)
-
-            # The two lines can be commented out if you use the code for your own training, since HSG does not use sent2sent edges. 
-            # However, if you want to use the released checkpoint directly, please leave them here.
-            # Otherwise it may cause some parameter corresponding errors due to the version differences.
-            for target_nid in sentid2nid:
-                G.add_edge(sent_nid, target_nid, dtype=1)
-                G.add_edge(target_nid, sent_nid, dtype=1)
+        node_cnt = 0
+        for sent in inputid:
+            for word_id in sent:
+                if word_id not in wid2nid.keys() and word_id not in self.filter_ids:
+                    wid2nid[word_id] = node_cnt
+                    nid2wid[node_cnt] = word_id
+                    node_cnt += 1
+        
+        G.add_nodes(node_cnt)
+        G.set_n_initializer(dgl.init.zero_initializer)
+        G.ndata['dtype'] = torch.zeros(node_cnt)
+        G.ndata['unit'] = torch.zeros(node_cnt)
+        G.ndata['id'] = torch.LongTensor(list(nid2wid.values()))
 
         return G
+        
+
+
+    def create_graph(self, input_pad, label, w2s_tfidf):
+        
+        G = dgl.DGLGraph()
+
+        wid2nid, nid2wid = self.add_word_node(G, input_pad)
+        word_cnt = len(nid2wid)
+
+        sent_cnt = len(input_pad)
+        G.add_nodes(sent_cnt)
+        G.ndata['dtype'][word_cnt:] = torch.ones(sent_cnt)
+        G.ndata['unit'][word_cnt:] = torch.ones(sent_cnt)
+        sent_ids = [i + word_cnt for i in range(sent_cnt)]
+
+        G.set_e_initializer(dgl.init.zero_initializer)
+
+        for i in range(sent_cnt):
+            c = Counter(input_pad[i])
+            sent_node = sent_ids[i]
+            tfidf_matrix = w2s_tfidf[str(i)]
+
+            for wid in c.keys():
+                if wid in wid2nid.keys() and self.vocab.id2word(wid) in tfidf_matrix.keys():
+                    word_node = wid2nid[wid]
+                    tfidf_value = tfidf_matrix[self.vocab.id2word(wid)]
+                    tfidf_value = np.round(tfidf_value*9) # do not know why
+                    G.add_edges(word_node,sent_node,data={"tffrac":torch.LongTensor([tfidf_value]),"dtype":torch.tensor([0])})
+                    G.add_edges(sent_node,word_node,data={"tffrac":torch.LongTensor([tfidf_value]),"dtype":torch.tensor([0])})
+            
+            # leave or comment these two lines
+            G.add_edges(sent_node,sent_ids,data={"dtype":torch.ones(sent_cnt)})
+            G.add_edges(sent_ids,sent_node,data={"dtype":torch.ones(sent_cnt)})
+
+        G.nodes[sent_ids].data["words"] = torch.LongTensor(input_pad)
+        G.nodes[sent_ids].data["position"] = torch.arange(1,sent_cnt+1).view(-1,1).long()
+        G.nodes[sent_ids].data["label"] = torch.LongTensor(label)
+
 
 
 def graph_collate_fn(samples):
@@ -218,10 +229,8 @@ def graph_collate_fn(samples):
     :return: 
     '''
     graphs, index = map(list, zip(*samples))
-    graph_len = [sum([1 for _, data in g.nodes(data=True) if data['dtype'] == 1]) for g in graphs]  # sent node of graph
+    graph_len = [len(g.filter_nodes(lambda nodes: nodes.data["dtype"] == 1)) for g in graphs]  # sent node of graph
     sorted_len, sorted_index = torch.sort(torch.LongTensor(graph_len), dim=0, descending=True)
-    
-    sorted_graphs = [graphs[idx] for idx in sorted_index]
-    sorted_indices = [index[idx] for idx in sorted_index]
-    
-    return sorted_graphs, sorted_indices   
+    batched_graph = dgl.batch([graphs[idx] for idx in sorted_index])
+    return batched_graph, [index[idx] for idx in sorted_index]
+
