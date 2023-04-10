@@ -23,17 +23,17 @@ import torch.nn.functional as F
 import dgl
 from dgl.data.utils import save_graphs, load_graphs
 
-
-
-
 FILTERWORD = stopwords.words('english')
-punctuations = [',', '.', ':', ';', '?', '(', ')', '[', ']', '&', '!', '*', '@', '#', '$', '%', '\'\'', '\'', '`', '``',
-                '-', '--', '|', '\/']
+punctuations = [
+    ',', '.', ':', ';', '?', '(', ')', '[', ']', '&', '!', '*', '@', '#', '$',
+    '%', '\'\'', '\'', '`', '``', '-', '--', '|', '\/'
+]
 FILTERWORD.extend(punctuations)
+
 
 def readJson(datapath):
     data = []
-    with open(datapath,'r') as f:
+    with open(datapath, 'r') as f:
         lines = f.readlines()
         for line in lines:
             # json.loads()将str类型的数据转换为dict类型
@@ -42,10 +42,11 @@ def readJson(datapath):
     f.close()
 
     return data
-        
+
+
 def readText(datapath):
     data = []
-    with open(datapath,'r') as f:
+    with open(datapath, 'r') as f:
         lines = f.readlines()
         for line in lines:
             data.append[line.strip()]
@@ -53,9 +54,9 @@ def readText(datapath):
 
     return data
 
-class Example(object):
 
-    def __init__(self,text,summary,label,max_len,vocab):
+class Example(object):
+    def __init__(self, text, summary, label, max_len, vocab):
         self.sent_max_len = max_len
         self.enc_sent_len = []
         self.enc_sent_input = []
@@ -72,21 +73,25 @@ class Example(object):
                 word_id = vocab.word2id[word.lower()]
                 line.append(word_id)
             self.enc_sent_input.append(line)
-        
+
         # PAD the sent to max(len(word_in_sent))
         self.pad_input_sent(vocab.word2id('[PAD]'))
-        
+
         self.label = label
         label_shape = (len(self.origin_text), len(label))  # [N, len(label)]
         self.label_matrix = np.zeros(label_shape, dtype=int)
         if label != []:
-            self.label_matrix[np.array(label), np.arange(len(label))] = 1  # label_matrix[i][j]=1 indicate the i-th sent will be selected in j-th step
-    
-    def pad_input_sent(self,pad_id):
+            self.label_matrix[np.array(
+                label
+            ), np.arange(
+                len(label)
+            )] = 1  # label_matrix[i][j]=1 indicate the i-th sent will be selected in j-th step
+
+    def pad_input_sent(self, pad_id):
         # sent is a list, self.enc_sent_input is a list(list)
         for sent in self.enc_sent_input:
             sent_len = len(sent)
-            sent_copy = sent.copy() # make a copy
+            sent_copy = sent.copy()  # make a copy
             if sent_len > self.sent_max_len:
                 self.enc_sent_input_pad.append(sent_copy[:self.sent_max_len])
             else:
@@ -97,8 +102,8 @@ class Example(object):
 
 
 class ExampleSet(torch.utils.data.Dataset):
-    
-    def __init__(self, data_path, vocab, doc_max_timesteps, sent_max_len, filter_word_path, w2s_path):
+    def __init__(self, data_path, vocab, doc_max_timesteps, sent_max_len,
+                 filter_word_path, w2s_path):
         """ Initializes the ExampleSet with the path of data
 
         :param data_path: string; the path of data
@@ -112,7 +117,6 @@ class ExampleSet(torch.utils.data.Dataset):
         self.vocab = vocab
         self.sent_max_len = sent_max_len
         self.doc_max_timesteps = doc_max_timesteps
-        
         '''
         example_list is a list and each item is a dict
 
@@ -122,8 +126,9 @@ class ExampleSet(torch.utils.data.Dataset):
         self.size = len(self.example_list)
 
         self.filter_words = FILTERWORD
-        self.filter_ids = [vocab.word2id(w.lower()) for w in FILTERWORD ]
-        self.filter_ids.append(vocab.word2id("[PAD]"))   # keep "[UNK]" but remove "[PAD]"
+        self.filter_ids = [vocab.word2id(w.lower()) for w in FILTERWORD]
+        self.filter_ids.append(
+            vocab.word2id("[PAD]"))  # keep "[UNK]" but remove "[PAD]"
 
         all_words = readText(filter_word_path)
         cnt = 0
@@ -139,42 +144,45 @@ class ExampleSet(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         example = self.get_example(index)
-        input_pad = example.enc_sent_input_pad # sent after pad
+        input_pad = example.enc_sent_input_pad  # sent after pad
         input_w2s_tfidf = self.w2s_tfidf[index]
         label_pad = self.pad_label(example.label_matrix)
-        G = self.create_graph(input_pad,label_pad,input_w2s_tfidf)
+        G = self.create_graph(input_pad, label_pad, input_w2s_tfidf)
         return G, index
 
     def __len__(self):
         return self.size
 
-    def get_example(self,idx):
+    def get_example(self, idx):
         item = self.example_list[idx]
-        item['summary'] = item.setdefault('summary',[])
-        example = Example(item['text'],item['summary'],item['label'],self.sent_max_len,self.vocab)
+        item['summary'] = item.setdefault('summary', [])
+        example = Example(item['text'], item['summary'], item['label'],
+                          self.sent_max_len, self.vocab)
         return example
 
-    def pad_label(self,label_matrix):
+    def pad_label(self, label_matrix):
         matrix_copy = label_matrix.copy()
-        pad_label = matrix_copy[:self.doc_max_timesteps,:self.doc_max_timesteps]
-        N,m = pad_label.shape
+        pad_label = matrix_copy[:self.doc_max_timesteps, :self.
+                                doc_max_timesteps]
+        N, m = pad_label.shape
         if m < self.doc_max_timesteps:
-            pad_item = np.zeros((N,self.doc_max_timesteps - m))
-            pad_label = np.hstack(pad_label,pad_item)
-        
+            pad_item = np.zeros((N, self.doc_max_timesteps - m))
+            pad_label = np.hstack(pad_label, pad_item)
+
         return pad_label
-    
+
     def add_word_node(self, G, inputid):
         wid2nid = {}
         nid2wid = {}
         node_cnt = 0
         for sent in inputid:
             for word_id in sent:
-                if word_id not in wid2nid.keys() and word_id not in self.filter_ids:
+                if word_id not in wid2nid.keys(
+                ) and word_id not in self.filter_ids:
                     wid2nid[word_id] = node_cnt
                     nid2wid[node_cnt] = word_id
                     node_cnt += 1
-        
+
         G.add_nodes(node_cnt)
         G.set_n_initializer(dgl.init.zero_initializer)
         G.ndata['dtype'] = torch.zeros(node_cnt)
@@ -182,11 +190,9 @@ class ExampleSet(torch.utils.data.Dataset):
         G.ndata['id'] = torch.LongTensor(list(nid2wid.values()))
 
         return G
-        
-
 
     def create_graph(self, input_pad, label, w2s_tfidf):
-        
+
         G = dgl.DGLGraph()
 
         wid2nid, nid2wid = self.add_word_node(G, input_pad)
@@ -206,21 +212,37 @@ class ExampleSet(torch.utils.data.Dataset):
             tfidf_matrix = w2s_tfidf[str(i)]
 
             for wid in c.keys():
-                if wid in wid2nid.keys() and self.vocab.id2word(wid) in tfidf_matrix.keys():
+                if wid in wid2nid.keys() and self.vocab.id2word(
+                        wid) in tfidf_matrix.keys():
                     word_node = wid2nid[wid]
                     tfidf_value = tfidf_matrix[self.vocab.id2word(wid)]
-                    tfidf_value = np.round(tfidf_value*9) # do not know why
-                    G.add_edges(word_node,sent_node,data={"tffrac":torch.LongTensor([tfidf_value]),"dtype":torch.tensor([0])})
-                    G.add_edges(sent_node,word_node,data={"tffrac":torch.LongTensor([tfidf_value]),"dtype":torch.tensor([0])})
-            
+                    tfidf_value = np.round(tfidf_value * 9)  # do not know why
+                    G.add_edges(word_node,
+                                sent_node,
+                                data={
+                                    "tffrac": torch.LongTensor([tfidf_value]),
+                                    "dtype": torch.tensor([0])
+                                })
+                    G.add_edges(sent_node,
+                                word_node,
+                                data={
+                                    "tffrac": torch.LongTensor([tfidf_value]),
+                                    "dtype": torch.tensor([0])
+                                })
+
             # leave or comment these two lines
-            G.add_edges(sent_node,sent_ids,data={"dtype":torch.ones(sent_cnt)})
-            G.add_edges(sent_ids,sent_node,data={"dtype":torch.ones(sent_cnt)})
+            G.add_edges(sent_node,
+                        sent_ids,
+                        data={"dtype": torch.ones(sent_cnt)})
+            G.add_edges(sent_ids,
+                        sent_node,
+                        data={"dtype": torch.ones(sent_cnt)})
 
         G.nodes[sent_ids].data["words"] = torch.LongTensor(input_pad)
-        G.nodes[sent_ids].data["position"] = torch.arange(1,sent_cnt+1).view(-1,1).long()
+        G.nodes[sent_ids].data["position"] = torch.arange(1,
+                                                          sent_cnt + 1).view(
+                                                              -1, 1).long()
         G.nodes[sent_ids].data["label"] = torch.LongTensor(label)
-
 
 
 def graph_collate_fn(samples):
@@ -229,8 +251,12 @@ def graph_collate_fn(samples):
     :return: 
     '''
     graphs, index = map(list, zip(*samples))
-    graph_len = [len(g.filter_nodes(lambda nodes: nodes.data["dtype"] == 1)) for g in graphs]  # sent node of graph
-    sorted_len, sorted_index = torch.sort(torch.LongTensor(graph_len), dim=0, descending=True)
+    graph_len = [
+        len(g.filter_nodes(lambda nodes: nodes.data["dtype"] == 1))
+        for g in graphs
+    ]  # sent node of graph
+    sorted_len, sorted_index = torch.sort(torch.LongTensor(graph_len),
+                                          dim=0,
+                                          descending=True)
     batched_graph = dgl.batch([graphs[idx] for idx in sorted_index])
     return batched_graph, [index[idx] for idx in sorted_index]
-
