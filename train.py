@@ -13,7 +13,7 @@ from rouge import Rouge
 # from HiGraph import HSumGraph, HSumDocGraph
 # from Tester import SLTester
 from module.dataloader import ExampleSet, MultiExampleSet, graph_collate_fn
-# from module.embedding import Word_Embedding
+from module.embedding import Word_Embedding
 from module.vocabulary import Vocab
 from tools.logger import *
 
@@ -202,32 +202,31 @@ def mian():
     torch.set_printoptions(threshold=50000)
 
     # file paths
-    DATA_FILE = os.path.join(args.data_dir,"train.label.jsonl")
-    VALID_FILE = os.path.join(args.data_dir,"val.label.jsonl")
-    VOCAL_FILE = os.path.join(args.cache_dir,"vocab")
-    FILTER_WORD = os.path.join(args.cache_dir,"filter_word.txt")
+    DATA_FILE = os.path.join(args.data_dir, "train.label.jsonl")
+    VALID_FILE = os.path.join(args.data_dir, "val.label.jsonl")
+    VOCAL_FILE = os.path.join(args.cache_dir, "vocab")
+    FILTER_WORD = os.path.join(args.cache_dir, "filter_word.txt")
     LOG_PATH = args.log_root
 
     if not os.path.exists(LOG_PATH):
         os.mkdir(LOG_PATH)
 
     now_time = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_path = os.path.join(LOG_PATH,"train_"+now_time)
+    log_path = os.path.join(LOG_PATH, "train_" + now_time)
     file_handler = logging.FileHandler(log_path)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    logger.info("Pytorch %s",torch.__version__)
-    logger.info("[INFO] Create Vocab, vocab path is %s",VOCAL_FILE)
-    vocab = Vocab(VOCAL_FILE,args.vocab_size)
-    
-    embed = torch.nn.Embedding(vocab.size(),args.word_emb_dim,padding_idx=0)
+    logger.info("Pytorch %s", torch.__version__)
+    logger.info("[INFO] Create Vocab, vocab path is %s", VOCAL_FILE)
+    vocab = Vocab(VOCAL_FILE, args.vocab_size)
 
+    embed = torch.nn.Embedding(vocab.size(), args.word_emb_dim, padding_idx=0)
 
-
-
-
-
-
-
-
+    if args.word_embedding:
+        embed_loader = Word_Embedding(args.embedding_path, vocab)
+        vector = embed_loader.load_my_vecs(args.word_emb_dim)
+        pretrained_weight = embed_loader.add_unknown_words_by_avg(
+            vector, args.word_emb_dim)
+        embed.weight.data.copy_(torch.tensor(pretrained_weight))
+        embed.weight.requires_grad = args.embed_train
