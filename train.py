@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from rouge import Rouge
 
-# from HiGraph import HSumGraph, HSumDocGraph
+from HiGraph import HSumGraph, HSumDocGraph
 # from Tester import SLTester
 from module.dataloader import ExampleSet, MultiExampleSet, graph_collate_fn
 from module.embedding import Word_Embedding
@@ -166,6 +166,10 @@ def mian():
         type=int,
         default=50,
         help='max length of documents (max timesteps of documents)')
+    parser.add_argument('--num_workers',
+                        type=int,
+                        default=32,
+                        help='num workers to load data [default:32]')
 
     # Training
     parser.add_argument('--lr',
@@ -230,3 +234,39 @@ def mian():
             vector, args.word_emb_dim)
         embed.weight.data.copy_(torch.tensor(pretrained_weight))
         embed.weight.requires_grad = args.embed_train
+
+    hps = args
+    logger.info(hps)
+
+    train_w2s_path = os.path.join(args.cache_dir, "train.w2s.tfidf.jsonl")
+    val_w2s_path = os.path.join(args.cache_dir, "val.w2s.tfidf.jsonl")
+
+    if hps.model == 'HSG':
+        model = HSumGraph(hps, embed)
+        logger.info('[MODEL] HSG')
+        dataset = ExampleSet(DATA_FILE, vocab, hps.doc_max_timesteps,
+                             hps.sent_max_len, FILTER_WORD, train_w2s_path)
+        train_loader = torch.utils.data.Dataloader(dataset,
+                                                   batch_size=hps.batch_size,
+                                                   shuffle=True,
+                                                   num_workers=hps.num_workers,collate_fn = graph_collate_fn)
+        del dataset
+        val_dataset = ExampleSet(VALID_FILE,vocab,hps.doc_max_timesteps,hps.sent_max_len,FILTER_WORD,val_w2s_path)
+        val_loader = torch.utils.data.Dataloader(val_dataset,
+                                    batch_size=hps.batch_size,
+                                    shuffle=False,
+                                    num_workers=hps.num_workers,collate_fn = graph_collate_fn)
+    else:
+        logger.error('[ERROR] Invalid Model Type!')
+    
+    if args.cuda:
+        # model.to(torch.device('cuda:0'))
+        model.to(torch.device("cuda:{}".format(args.gpu)))
+        logger.info('[INFO] Use cuda {}'.format(args.gpu))
+    
+    setup_training()
+ 
+        
+
+def setup_training():
+    pass
