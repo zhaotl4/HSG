@@ -7,7 +7,7 @@ import torch.nn.utils.rnn as rnn
 
 import dgl
 
-# from module.GAT import GAT, GAT_ffn
+from module.GAT import GAT, GAT_ffn
 from module.Encoder import sentEncoder
 from module.GAT import WSWGAT
 from module.PositionEmbedding import get_sinusoid_encoding_table
