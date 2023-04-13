@@ -51,7 +51,7 @@ class sentEncoder(nn.Module):
     
     def forward(self,input):
         # input is a batch of example object [s_nodes, seq_len]
-        input_sent_len = ((input!=0).sum(dim=1)).int()
+        input_sent_len = ((input!=0).sum(dim=1)).int() # [s_nodes, 1]
 
         enc_embed_input = self.embed(input)
 
