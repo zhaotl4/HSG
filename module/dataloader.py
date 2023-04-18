@@ -173,8 +173,7 @@ class ExampleSet(torch.utils.data.Dataset):
         node_cnt = 0
         for sent in inputid:
             for word_id in sent:
-                if word_id not in wid2nid.keys(
-                ) and word_id not in self.filter_ids:
+                if word_id not in wid2nid.keys() and word_id not in self.filter_ids:
                     wid2nid[word_id] = node_cnt
                     nid2wid[node_cnt] = word_id
                     node_cnt += 1
